@@ -2,311 +2,158 @@
 
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Daily Organiser</title>
-  <style>
-    :root{--accent:#2563eb;--muted:#666}
-    body{font-family:Inter,ui-sans-serif,system-ui,Arial;margin:0;background:#f7f9fc;color:#0b1220}
-    .app{max-width:1000px;margin:28px auto;padding:20px;background:white;border-radius:12px;box-shadow:0 6px 30px rgba(15,23,42,.06)}
-    header{display:flex;align-items:center;gap:12px;margin-bottom:18px}
-    h1{font-size:20px;margin:0}
-    .pages{min-height:520px}
-    .page{display:none}
-    .page.active{display:block}
-    .controls{display:flex;justify-content:space-between;align-items:center;margin-top:18px}
-    button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
-    button.ghost{background:transparent;color:var(--accent);border:1px solid #e6eefc}
-    input,select{padding:8px;border-radius:8px;border:1px solid #e6eefc}
-    .row{display:flex;gap:12px;align-items:center}/* Task list */
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Daily Organiser with SortableJS & Undo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">
+<style>
+:root{--accent:#2563eb;--muted:#6b7280;--bg:#f7f9fc}
+*{box-sizing:border-box}
+body{font-family:Inter,system-ui,Arial;margin:0;background:var(--bg);color:#0b1220;-webkit-font-smoothing:antialiased}
+.app{max-width:1000px;margin:22px auto;padding:18px;background:white;border-radius:12px;box-shadow:0 8px 30px rgba(15,23,42,.06)}
+header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+h1{font-size:20px;margin:0}
+.pages{min-height:520px}
+.page{display:none}
+.page.active{display:block}
+.controls{display:flex;justify-content:space-between;align-items:center;margin-top:18px}
+button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent);border:1px solid #e6eefc}
+input,select{padding:8px;border-radius:8px;border:1px solid #e6eefc}
+.row{display:flex;gap:12px;align-items:center}
+.small{font-size:13px;color:var(--muted)}
 .task-form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .task-list{border-radius:8px;border:1px dashed #e6eefc;padding:10px;min-height:120px}
 .task-item{display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;background:#fbfdff;margin-bottom:8px}
 .task-meta{font-size:13px;color:var(--muted)}
-
-/* Scheduler */
+.rank-grid,.rank-tasks,.inbox{border-radius:8px;border:1px solid #eef5ff;padding:10px;min-height:120px;background:#fff;overflow:auto}
+.rank-tasks .draggable,.inbox .draggable{padding:8px;margin-bottom:8px;background:white;border-radius:8px;border:1px solid #e6eefc;cursor:grab}
 .scheduler{display:flex;gap:18px}
-.left{width:260px}
-.inbox{border-radius:8px;border:1px solid #eef5ff;padding:10px;height:420px;overflow:auto}
-.draggable{padding:8px;margin-bottom:8px;background:white;border-radius:8px;border:1px solid #e6eefc;cursor:grab}
-
-.calendar{flex:1;border-radius:8px;border:1px solid #eef5ff;position:relative;padding:12px;height:420px;background:linear-gradient(180deg,#fff,#fbfdff)}
-.time-grid{position:absolute;left:0;right:0;top:12px;bottom:12px;overflow:auto}
-.hour-row{display:flex}
-.time-labels{width:62px;padding-right:8px;box-sizing:border-box}
-.time-columns{flex:1;position:relative}
-.slot{border-top:1px dashed #f1f6ff;height:40px;box-sizing:border-box}
-.task-block{position:absolute;border-radius:8px;padding:6px;font-size:13px;color:#062a4b;background:rgba(37,99,235,.10);border:1px solid rgba(37,99,235,.18);cursor:grab}
+.left{width:280px}
+.current-task{padding:12px;border-radius:10px;border:1px solid #e6eefc;background:#fff;margin-bottom:10px}
+.calendar{flex:1;border-radius:8px;border:1px solid #eef5ff;position:relative;padding:12px;height:420px;background:linear-gradient(180deg,#fff,#fbfdff);overflow:auto}
+.slot{border-top:1px dashed #f1f6ff;height:40px;box-sizing:border-box;display:flex;align-items:center;padding-left:8px;position:relative}
+.task-block{position:absolute;border-radius:8px;padding:6px;font-size:13px;color:#062a4b;background:rgba(37,99,235,.10);border:1px solid rgba(37,99,235,.18);cursor:grab;transition:0.2s}
 .locked .draggable{cursor:default;opacity:.6}
 .warning{color:#b44;margin-top:8px}
-
-footer{display:flex;justify-content:space-between;align-items:center;margin-top:18px}
-.small{font-size:13px;color:var(--muted)}
 @media (max-width:900px){.scheduler{flex-direction:column}.left{width:100%}.calendar{height:360px}}
-
-  </style>
+@media (max-width:520px){.task-form input{min-width:120px}}
+</style>
 </head>
 <body>
-  <div class="app" id="app">
-    <header>
-      <h1>Daily Organiser</h1>
-      <div class="small">Create tasks → set awake hours → allocate into your day</div>
-    </header><div class="pages">
-  <!-- Page 1: Tasks -->
-  <section class="page active" id="page-tasks">
-    <h3>1) Add tasks</h3>
-    <div class="task-form">
-      <input id="task-name" placeholder="Task name (e.g. Email replies)" style="flex:1" />
-      <input id="task-duration" type="number" min="1" placeholder="Duration (mins)" style="width:140px" />
-      <input id="task-qty" type="number" min="1" value="1" style="width:100px" />
-      <select id="task-priority" style="width:120px"><option value="1">Priority 1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select>
-      <button id="add-task">Add</button>
-    </div>
-    <div class="row">
-      <div style="flex:1">
-        <div class="small">Tasks (each quantity creates separate instances)</div>
-        <div class="task-list" id="task-list"></div>
-      </div>
-      <div style="width:220px">
-        <div class="small">Quick actions</div>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-          <button id="auto-allocate" class="ghost">Auto-allocate by priority</button>
-          <button id="clear-tasks" class="ghost">Clear tasks</button>
-          <div class="small" style="margin-top:8px">Stored locally in your browser.</div>
-        </div>
-      </div>
-    </div>
-    <div class="controls">
-      <div></div>
-      <div>
-        <button id="to-time">Next: Set awake time →</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- Page 2: Time -->
-  <section class="page" id="page-time">
-    <h3>2) Set awake period</h3>
-    <div style="display:flex;gap:10px;align-items:center">
-      <div class="small">Start</div>
-      <input id="awake-start" type="time" value="09:30" />
-      <div class="small">End</div>
-      <input id="awake-end" type="time" value="22:30" />
-    </div>
-    <div style="margin-top:12px" class="small">When the scheduler fills your day it will use this window.</div>
-    <div class="controls">
-      <div>
-        <button id="back-to-tasks" class="ghost">← Back</button>
-      </div>
-      <div>
-        <button id="to-schedule">Next: Scheduler →</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- Page 3: Scheduler -->
-  <section class="page" id="page-scheduler">
-    <h3>3) Schedule your day</h3>
-    <div class="scheduler" id="scheduler-root">
-      <div class="left">
-        <div class="small">Unallocated tasks (drag into the calendar)</div>
-        <div class="inbox" id="inbox"></div>
-        <div style="margin-top:8px"><button id="auto-place">Auto-place remaining</button></div>
-        <div id="sched-warning" class="warning"></div>
-      </div>
-      <div class="calendar" id="calendar">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div class="small">Calendar (drag to move)</div>
-          <div class="small">Click a block to remove it</div>
-        </div>
-        <div class="time-grid" id="time-grid">
-          <!-- time labels & slot columns generated by JS -->
-        </div>
-      </div>
-    </div>
-
-    <div class="controls">
-      <div>
-        <button id="back-to-time" class="ghost">← Back</button>
-      </div>
-      <div>
-        <button id="finish">Finish & Lock</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- Page 4: Summary -->
-  <section class="page" id="page-summary">
-    <h3>Done — Your locked schedule</h3>
-    <div id="summary-list"></div>
-    <div style="margin-top:12px" class="small">You can reset to start again.</div>
-    <div class="controls">
-      <div>
-        <button id="reset" class="ghost">Reset</button>
-      </div>
-      <div>
-        <button id="export">Export JSON</button>
-      </div>
-    </div>
-  </section>
-
+<div class="app" id="app">
+<header>
+<h1>Daily Organiser</h1>
+<div class="small">Add tasks → Rank → Set time → Schedule → Summary</div>
+</header>
+<div class="pages">
+<section class="page active" id="page-tasks">
+<h3>1) Add tasks</h3>
+<div class="task-form">
+<input id="task-name" placeholder="Task name" style="flex:1" />
+<input id="task-duration" type="number" min="1" placeholder="Duration (mins)" style="width:140px" />
+<button id="add-task">Add</button>
 </div>
-
+<div class="row">
+<div style="flex:1">
+<div class="small">Tasks</div>
+<div class="task-list" id="task-list"></div>
+</div>
+<div style="width:220px">
+<div class="small">Actions</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+<button id="to-rank">Next: Rank tasks →</button>
+<button id="clear-tasks" class="ghost">Clear tasks</button>
+</div>
+</div>
+</div>
+</section>
+<section class="page" id="page-rank">
+<h3>2) Rank tasks (drag to reorder)</h3>
+<div style="display:flex;gap:12px;flex-wrap:wrap">
+<div style="flex:1;min-width:260px">
+<div class="small">Drag to reorder. Top = Priority 1</div>
+<div style="margin-top:8px" id="rank-tasks" class="rank-tasks"></div>
+</div>
+</div>
+<div class="controls">
+<button id="back-to-tasks" class="ghost">← Back</button>
+<button id="rank-to-time">Next: Set Awake Time →</button>
+</div>
+</section>
+<section class="page" id="page-time">
+<h3>3) Set awake period</h3>
+<div style="display:flex;gap:10px;align-items:center">
+<div class="small">Start</div>
+<input id="awake-start" type="time" value="09:30" />
+<div class="small">End</div>
+<input id="awake-end" type="time" value="22:30" />
+</div>
+<div class="controls">
+<button id="back-to-rank" class="ghost">← Back</button>
+<button id="to-schedule">Next: Scheduler →</button>
+</div>
+</section>
+<section class="page" id="page-scheduler">
+<h3>4) Schedule your day</h3>
+<div class="scheduler" id="scheduler-root">
+<div class="left">
+<div class="small">Current task</div>
+<div class="current-task" id="current-task">No task selected</div>
+<div style="display:flex;gap:8px;margin-bottom:8px"><button id="undo">Undo</button><button id="clear-scheduled" class="ghost">Clear all</button></div>
+<div class="small">Remaining tasks</div>
+<div class="inbox" id="inbox"></div>
+<div id="sched-warning" class="warning"></div>
+</div>
+<div class="calendar" id="calendar">
+<div class="time-grid" id="time-grid"></div>
+</div>
+</div>
+<div class="controls">
+<button id="back-to-time" class="ghost">← Back</button>
+<button id="finish">Finish & Lock</button>
+</div>
+</section>
+<section class="page" id="page-summary">
+<h3>5) Summary</h3>
+<div id="summary-list"></div>
+<div class="controls">
+<button id="reset" class="ghost">Reset</button>
+<button id="export">Export JSON</button>
+</div>
+</section>
+</div>
 <footer>
-  <div class="small">Made with ❤️ — drag tasks into the calendar or auto-place.</div>
-  <div class="small">LocalStorage used.</div>
+<div class="small">Made with ❤️ — mobile-friendly</div>
 </footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+const qs = s => document.querySelector(s);
+const qsa = s => Array.from(document.querySelectorAll(s));
+const state = {tasks:[],instances:[],schedule:[],locked:false,undoStack:[]};function uid(p='id'){return p+Math.random().toString(36).slice(2,9)} function minutesBetween(t1,t2){const [h1,m1]=t1.split(':').map(Number);const [h2,m2]=t2.split(':').map(Number);return (h260+m2)-(h160+m1)} function addMinutes(time,mins){const d=new Date();const [h,m]=time.split(':').map(Number);d.setHours(h);d.setMinutes(m+mins);return d.toTimeString().slice(0,5)}
 
-  </div>  <script>
-    /* ----- Utilities ----- */
-    const qs = s => document.querySelector(s);
-    const qsa = s => Array.from(document.querySelectorAll(s));
-    const appState = {tasks:[],instances:[],schedule:[],locked:false};
+function save(){localStorage.setItem('organiser_v2',JSON.stringify(state))} function load(){const v=localStorage.getItem('organiser_v2');if(v){Object.assign(state,JSON.parse(v))}}
 
-    function uid(prefix='id'){return prefix+Math.random().toString(36).slice(2,9)}
-    function minutesBetween(t1,t2){ // 'HH:MM'
-      const [h1,m1]=t1.split(':').map(Number); const [h2,m2]=t2.split(':').map(Number);
-      return (h2*60+m2)-(h1*60+m1);
-    }
-    function addMinutes(time,mins){const d=new Date();const [h,m]=time.split(':').map(Number);d.setHours(h);d.setMinutes(m+mins);return d.toTimeString().slice(0,5)}
+function showPage(id){qsa('.page').forEach(p=>p.classList.remove('active'));qs(id).classList.add('active')}
 
-    /* ----- Persist ----- */
-    function save(){localStorage.setItem('organiser',JSON.stringify(appState))}
-    function load(){const v=localStorage.getItem('organiser');if(v){Object.assign(appState,JSON.parse(v))}}
+// --- Tasks --- function renderTasks(){const list=qs('#task-list');list.innerHTML='';state.tasks.forEach(t=>{const el=document.createElement('div');el.className='task-item';el.innerHTML=<div><strong>${t.name}</strong><div class="task-meta">${t.duration} mins</div></div><div><button data-id='${t.id}' class='remove'>Delete</button></div>;list.appendChild(el);}); qsa('#task-list .remove').forEach(b=>b.onclick=()=>{state.tasks=state.tasks.filter(x=>x.id!==b.dataset.id);renderTasks();renderRanking();save()});}
 
-    /* ----- Page navigation ----- */
-    function showPage(id){qsa('.page').forEach(p=>p.classList.remove('active'));qs(id).classList.add('active')}
+qs('#add-task').addEventListener('click',()=>{const name=qs('#task-name').value.trim();const duration=Number(qs('#task-duration').value);if(!name||!duration) return alert('Provide name and duration');state.tasks.push({id:uid(),name,duration});qs('#task-name').value='';qs('#task-duration').value='';renderTasks();renderRanking();save()}); qs('#clear-tasks').addEventListener('click',()=>{if(confirm('Clear all tasks?')){state.tasks=[];state.instances=[];renderTasks();renderRanking();save()}})
 
-    /* ----- Tasks UI ----- */
-    function renderTasks(){const list=qs('#task-list');list.innerHTML='';appState.tasks.forEach(t=>{
-      const el=document.createElement('div');el.className='task-item';el.innerHTML=`<div><strong>${t.name}</strong><div class="task-meta">${t.duration} mins • qty ${t.qty} • priority ${t.priority}</div></div><div><button data-id="${t.id}" class="edit">Edit</button> <button data-id="${t.id}" class="remove">Delete</button></div>`;
-      list.appendChild(el);
-    });
-    qsa('#task-list .remove').forEach(b=>b.onclick=()=>{appState.tasks=appState.tasks.filter(x=>x.id!==b.dataset.id);renderTasks();save()});
-    qsa('#task-list .edit').forEach(b=>b.onclick=()=>{const t=appState.tasks.find(x=>x.id===b.dataset.id);qs('#task-name').value=t.name;qs('#task-duration').value=t.duration;qs('#task-qty').value=t.qty;qs('#task-priority').value=t.priority;appState.tasks=appState.tasks.filter(x=>x.id!==t.id);renderTasks();});
-    }
+// --- Ranking (Sortable) --- function renderRanking(){const list=qs('#rank-tasks');list.innerHTML='';state.tasks.forEach(t=>{const el=document.createElement('div');el.className='draggable';el.dataset.id=t.id;el.innerHTML=<strong>${t.name}</strong><div class='task-meta'>${t.duration} min</div>;list.appendChild(el);}); new Sortable(list,{animation:200,ghostClass:'sortable-ghost',onEnd:()=>{const ids=Array.from(list.children).map(e=>e.dataset.id);state.tasks=ids.map(id=>state.tasks.find(t=>t.id===id));save();}}); } qs('#to-rank').addEventListener('click',()=>{if(!state.tasks.length)return alert('Add tasks first');renderRanking();showPage('#page-rank')}); qs('#back-to-tasks').addEventListener('click',()=>showPage('#page-tasks')); qs('#rank-to-time').addEventListener('click',()=>showPage('#page-time')); qs('#back-to-rank').addEventListener('click',()=>showPage('#page-rank'));
 
-    qs('#add-task').addEventListener('click',()=>{
-      const name=qs('#task-name').value.trim();const duration=Number(qs('#task-duration').value);const qty=Number(qs('#task-qty').value);const priority=Number(qs('#task-priority').value);
-      if(!name||!duration||qty<1) return alert('Please provide name, duration and qty');
-      const task={id:uid('task'),name,duration,qty,priority};appState.tasks.push(task);qs('#task-name').value='';qs('#task-duration').value='';qs('#task-qty').value='1';renderTasks();save();
-    });
+// --- Time --- qs('#to-schedule').addEventListener('click',()=>{buildInstances();renderInbox();renderCalendar();showPage('#page-scheduler')}); qs('#back-to-time').addEventListener('click',()=>showPage('#page-time')); function buildInstances(){state.instances=state.tasks.map(t=>({iid:uid(),id:t.id,name:t.name,duration:t.duration}))}
 
-    qs('#clear-tasks').addEventListener('click',()=>{if(confirm('Clear all tasks?')){appState.tasks=[];renderTasks();save();}})
+// --- Scheduler Inbox (Sortable) --- function renderInbox(){const inbox=qs('#inbox');inbox.innerHTML='';const placed=new Set(state.schedule.map(s=>s.instanceId));state.instances.forEach(inst=>{if(!placed.has(inst.iid)){const el=document.createElement('div');el.className='draggable';el.dataset.iid=inst.iid;el.innerHTML=<strong>${inst.name}</strong><div class='task-meta'>${inst.duration} min</div>;inbox.appendChild(el);}}); new Sortable(inbox,{animation:200,ghostClass:'sortable-ghost',onEnd:()=>save()}); renderCurrentTask();} function getCurrentUnplaced(){const placed=new Set(state.schedule.map(s=>s.instanceId));return state.instances.find(inst=>!placed.has(inst.iid))||null} function renderCurrentTask(){const cur=getCurrentUnplaced();const el=qs('#current-task');if(!cur){el.innerHTML='All tasks placed.';el.style.opacity=0.7;return}el.style.opacity=1;el.innerHTML=<div style='font-weight:700'>${cur.name}</div><div class='small'>${cur.duration} min</div>;}
 
-    /* ----- Prepare instances (quantity expands) ----- */
-    function buildInstances(){appState.instances=[];appState.tasks.forEach(t=>{for(let i=0;i<t.qty;i++){appState.instances.push({iid:uid('inst'),taskId:t.id,name:t.name,duration:t.duration,priority:t.priority})}})}
+// --- Calendar --- const minutePx=40/30; function renderCalendar(){const grid=qs('#time-grid');grid.innerHTML='';const start=qs('#awake-start').value;const end=qs('#awake-end').value;const totalMin=minutesBetween(start,end);if(totalMin<=0){grid.innerHTML='<div class=warning>End time must be after start time</div>';return}const rows=Math.ceil(totalMin/30);for(let i=0;i<rows;i++){const s=document.createElement('div');s.className='slot';s.dataset.index=i;s.addEventListener('click',()=>placeCurrentAt(i*30));grid.appendChild(s);}state.schedule.forEach(b=>placeBlockElement(b,start));} function placeBlockElement(block,startTime){const grid=qs('#time-grid');const top=minutesBetween(startTime,block.start)minutePx;const height=block.durationminutePx;const el=document.createElement('div');el.className='task-block';el.style.top=top+'px';el.style.left='6px';el.style.right='6px';el.style.height=height+'px';el.innerHTML=<strong>${block.name}</strong><div class='task-meta'>${block.start} • ${block.duration} min</div>;el.addEventListener('click',()=>{if(state.locked)return;if(confirm('Remove this block?')){state.schedule=state.schedule.filter(x=>x.bid!==block.bid);state.undoStack.push({action:'remove',block});renderInbox();renderCalendar();save();}});grid.appendChild(el);} function placeCurrentAt(offset){const cur=getCurrentUnplaced();if(!cur)return;const st=addMinutes(qs('#awake-start').value,offset);const block={bid:uid(),instanceId:cur.iid,name:cur.name,duration:cur.duration,start:st};state.schedule.push(block);state.undoStack.push({action:'add',block});renderInbox();renderCalendar();save();}
 
-    /* ----- Planner grid ----- */
-    let minutePx=40/30; // 30 min = 40px
-    function renderCalendar(){const grid=qs('#time-grid');grid.innerHTML='';const start=qs('#awake-start').value;const end=qs('#awake-end').value;const totalMin=minutesBetween(start,end);if(totalMin<=0){grid.innerHTML='<div class="warning">End time must be after start time</div>';return}
-      const rows=Math.ceil(totalMin/30);
-      // build labels & slots
-      const labels=document.createElement('div');labels.style.display='flex';labels.className='hour-row';
-      const labelCol=document.createElement('div');labelCol.className='time-labels';
-      for(let i=0;i<rows;i++){const t=addMinutes(start,i*30);const lbl=document.createElement('div');lbl.style.height='40px';lbl.style.lineHeight='40px';lbl.textContent=t;labelCol.appendChild(lbl)}
-      const col=document.createElement('div');col.className='time-columns';
-      col.style.position='relative';col.style.minHeight=(rows*40)+'px';
-      for(let i=0;i<rows;i++){const s=document.createElement('div');s.className='slot';s.dataset.index=i;col.appendChild(s)}
-      labels.appendChild(labelCol);labels.appendChild(col);
-      grid.appendChild(labels);
-      // render placed schedule blocks
-      appState.schedule.forEach(b=>{
-         placeBlockElement(b,col,start);
-      });
-    }
+// --- Undo / Clear --- qs('#undo').addEventListener('click',()=>{const last=state.undoStack.pop();if(!last)return alert('Nothing to undo');if(last.action==='add'){state.schedule=state.schedule.filter(b=>b.bid!==last.block.bid)}else if(last.action==='remove'){state.schedule.push(last.block)}renderInbox();renderCalendar();save();}); qs('#clear-scheduled').addEventListener('click',()=>{if(confirm('Clear all?')){state.schedule=[];state.undoStack=[];renderInbox();renderCalendar();save();}});
 
-    function placeBlockElement(block,parent,startTime){
-      const top = Math.max(0, minutesBetween(startTime,block.start))*minutePx;
-      const height = block.duration*minutePx;
-      const el=document.createElement('div');el.className='task-block';el.draggable=true;el.dataset.bid=block.bid;el.style.top=top+'px';el.style.left='6px';el.style.right='6px';el.style.height=height+'px';el.innerHTML=`<strong>${block.name}</strong><div class="task-meta">${block.duration} min • ${block.priority}</div>`;
-      // click to remove
-      el.addEventListener('click',(e)=>{if(appState.locked) return; if(confirm('Remove this scheduled block?')){appState.schedule=appState.schedule.filter(x=>x.bid!==block.bid);renderInbox();renderCalendar();save();}})
-      el.addEventListener('dragstart',(e)=>{if(appState.locked){e.preventDefault();return} e.dataTransfer.setData('text/plain',JSON.stringify({type:'move',bid:block.bid,offsetY:e.offsetY}))});
-      parent.appendChild(el);
-    }
+// --- Finish / Summary --- qs('#finish').addEventListener('click',()=>{state.locked=true;save();renderSummary();showPage('#page-summary')}); function renderSummary(){const el=qs('#summary-list');el.innerHTML='';const start=qs('#awake-start').value;state.schedule.sort((a,b)=>minutesBetween(start,a.start)-minutesBetween(start,b.start)).forEach(b=>{const div=document.createElement('div');div.style.padding='8px';div.style.borderBottom='1px solid #f1f6ff';div.innerHTML=<strong>${b.start} - ${addMinutes(b.start,b.duration)}</strong> ${b.name} • ${b.duration} min;el.appendChild(div);});} qs('#reset').addEventListener('click',()=>{localStorage.removeItem('organiser_v2');location.reload()}); qs('#export').addEventListener('click',()=>{const data=JSON.stringify(state);const blob=new Blob([data],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='organiser.json';a.click();});
 
-    /* ----- Inbox (unallocated) ----- */
-    function renderInbox(){const inbox=qs('#inbox');inbox.innerHTML='';const placedIds=new Set(appState.schedule.map(s=>s.instanceId));appState.instances.forEach(inst=>{if(!placedIds.has(inst.iid)){const el=document.createElement('div');el.className='draggable';el.draggable=true;el.dataset.iid=inst.iid;el.innerHTML=`<strong>${inst.name}</strong><div class="task-meta">${inst.duration} min • p${inst.priority}</div>`;el.addEventListener('dragstart',e=>{if(appState.locked){e.preventDefault();return} e.dataTransfer.setData('text/plain',JSON.stringify({type:'place',iid:inst.iid}))});inbox.appendChild(el)}})
-    }
+// --- Init --- function init(){load();renderTasks();renderRanking();} init(); </script>
 
-    /* ----- Calendar drop handling ----- */
-    qs('#time-grid').addEventListener('dragover',e=>{e.preventDefault()});
-    qs('#time-grid').addEventListener('drop',e=>{
-      e.preventDefault();if(appState.locked) return;const data=JSON.parse(e.dataTransfer.getData('text/plain'));
-      const rect=e.currentTarget.getBoundingClientRect();const y=e.clientY-rect.top;const start=qs('#awake-start').value;
-      const minutes=Math.round(y/minutePx); // minutes offset from start
-      if(data.type==='place'){
-        const inst=appState.instances.find(x=>x.iid===data.iid);const startTime=addMinutes(start,minutes);
-        const block={bid:uid('blk'),instanceId:inst.iid,name:inst.name,duration:inst.duration,priority:inst.priority,start:startTime};
-        if(canPlace(block)){appState.schedule.push(block);renderInbox();renderCalendar();save();qs('#sched-warning').textContent=''}else{qs('#sched-warning').textContent='Not enough space to place that task at this time.'}
-      }
-      if(data.type==='move'){
-        const bid=data.bid;const block=appState.schedule.find(x=>x.bid===bid);const newStart=addMinutes(start,minutes);const moved=Object.assign({},block,{start:newStart});appState.schedule=appState.schedule.filter(x=>x.bid!==bid);
-        if(canPlace(moved)){appState.schedule.push(moved);renderInbox();renderCalendar();save();qs('#sched-warning').textContent=''}else{appState.schedule.push(block);qs('#sched-warning').textContent='Cannot move there — overlap or out of bounds.'}
-      }
-    });
-
-    function canPlace(candidate){
-      const start=qs('#awake-start').value;const end=qs('#awake-end').value;const minutesFromStart=minutesBetween(start,candidate.start);if(minutesFromStart<0) return false; if(minutesFromStart+candidate.duration>minutesBetween(start,end)) return false; // bounds
-      // overlap check
-      for(const b of appState.schedule){
-        const s1=minutesBetween(start,b.start);const e1=s1+b.duration;const s2=minutesFromStart;const e2=s2+candidate.duration; if(!(e2<=s1||s2>=e1)) return false;
-      }
-      return true;
-    }
-
-    /* ----- Auto allocation by priority (simple greedy) ----- */
-    function autoAllocate(){buildInstances(); // expand
-      // if some are already placed, keep them
-      const placed=new Set(appState.schedule.map(s=>s.instanceId));
-      const candidates=appState.instances.filter(i=>!placed.has(i.iid)).sort((a,b)=>a.priority-b.priority);
-      const start=qs('#awake-start').value;const end=qs('#awake-end').value;const total=minutesBetween(start,end);
-      // build occupancy timeline
-      const occupied=new Array(total).fill(0);
-      appState.schedule.forEach(s=>{const off=minutesBetween(start,s.start);for(let i=off;i<off+s.duration;i++) if(i>=0 && i<total) occupied[i]=1});
-      for(const inst of candidates){ // find earliest fit
-        let found=false;
-        for(let t=0;t<=total-inst.duration;t++){
-          let ok=true;for(let k=t;k<t+inst.duration;k++){if(occupied[k]){ok=false;break}}
-          if(ok){for(let k=t;k<t+inst.duration;k++)occupied[k]=1;const st=addMinutes(start,t);appState.schedule.push({bid:uid('blk'),instanceId:inst.iid,name:inst.name,duration:inst.duration,priority:inst.priority,start:st});found=true;break}
-        }
-        if(!found){qs('#sched-warning').textContent='Some tasks could not be fitted into your awake period.'}
-      }
-      renderInbox();renderCalendar();save();
-    }
-
-    qs('#auto-place').addEventListener('click',()=>{autoAllocate()});
-    qs('#auto-allocate').addEventListener('click',()=>{buildInstances();autoAllocate();showPage('#page-scheduler')});
-
-    /* ----- Navigation buttons ----- */
-    qs('#to-time').addEventListener('click',()=>{buildInstances();save();showPage('#page-time')});
-    qs('#back-to-tasks').addEventListener('click',()=>{showPage('#page-tasks')});
-    qs('#to-schedule').addEventListener('click',()=>{renderInbox();renderCalendar();showPage('#page-scheduler')});
-    qs('#back-to-time').addEventListener('click',()=>{showPage('#page-time')});
-
-    /* ----- Finish / Lock ----- */
-    qs('#finish').addEventListener('click',()=>{
-      if(!confirm('Finish and lock this schedule for the day?')) return; appState.locked=true;save();qs('#app').classList.add('locked'); renderSummary(); showPage('#page-summary');
-    });
-
-    function renderSummary(){const el=qs('#summary-list');el.innerHTML='';const start=qs('#awake-start').value;const sorted=appState.schedule.slice().sort((a,b)=>minutesBetween(start,a.start)-minutesBetween(start,b.start));if(sorted.length===0){el.innerHTML='<div class="small">No tasks scheduled.</div>';return}
-      sorted.forEach(b=>{const div=document.createElement('div');div.style.padding='8px';div.style.borderBottom='1px solid #f1f6ff';div.innerHTML=`<strong>${b.start} — ${addMinutes(b.start,b.duration)}</strong> <div class="small">${b.name} • ${b.duration} min</div>`;el.appendChild(div)})
-    }
-
-    qs('#reset').addEventListener('click',()=>{if(confirm('Reset everything?')){localStorage.removeItem('organiser');location.reload()}})
-    qs('#export').addEventListener('click',()=>{const data=JSON.stringify(appState);const blob=new Blob([data],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='organiser.json';a.click();URL.revokeObjectURL(url)});
-
-    /* ----- Dragging from calendar back to inbox (delete) ----- */
-    // not fully required; removal via click provided above
-
-    /* ----- Init load ----- */
-    function init(){load();if(appState.tasks) renderTasks(); if(appState.tasks && appState.tasks.length) buildInstances(); qs('#awake-start').value=(appState.awakeStart||'09:30');qs('#awake-end').value=(appState.awakeEnd||'22:30'); if(appState.schedule) renderCalendar();}
-
-    // keep awake settings saved
-    qs('#awake-start').addEventListener('change',()=>{appState.awakeStart=qs('#awake-start').value;save();renderCalendar()});
-    qs('#awake-end').addEventListener('change',()=>{appState.awakeEnd=qs('#awake-end').value;save();renderCalendar()});
-
-    init();
-  </script></body>
+</body>
   </html>
